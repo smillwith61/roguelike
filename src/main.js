@@ -4,12 +4,12 @@ import './styles.css';
 const GAME_WIDTH = 384;
 const GAME_HEIGHT = 216;
 const TILE = 16;
-const FLOOR_COLS = 4;
-const FLOOR_ROWS = 2;
-const WALL_HEIGHT = 64;
-const SIDE_WALL_WIDTH = 8;
-const SIDE_WALL_HEIGHT = 96;
-const DOOR_SIZE = 64;
+const FLOOR_TILE_SIZE = 64;
+const WALL_SCALE = 0.5;
+const WALL_HEIGHT = 32;
+const SIDE_WALL_WIDTH = 4;
+const SIDE_WALL_HEIGHT = 48;
+const DOOR_SIZE = 32;
 const ROOM_WIDTH = GAME_WIDTH;
 const ROOM_HEIGHT = GAME_HEIGHT;
 const ROOM_COLS = 3;
@@ -337,29 +337,15 @@ class RogueScene extends Phaser.Scene {
     const doorY = top + ROOM_HEIGHT / 2;
 
     this.floorBack.fillStyle(room.type === 'neutral' ? 0x15131f : 0x111018, 1).fillRect(left, top, ROOM_WIDTH, ROOM_HEIGHT);
-    const floorLeft = left + SIDE_WALL_WIDTH;
-    const floorTop = top + WALL_HEIGHT;
-    const floorWidth = ROOM_WIDTH - SIDE_WALL_WIDTH * 2;
-    const floorHeight = ROOM_HEIGHT - WALL_HEIGHT * 2;
-    const floorTileWidth = floorWidth / FLOOR_COLS;
-    const floorTileHeight = floorHeight / FLOOR_ROWS;
-    for (let row = 0; row < FLOOR_ROWS; row++) {
-      for (let col = 0; col < FLOOR_COLS; col++) {
-        const x = floorLeft + col * floorTileWidth;
-        const y = floorTop + row * floorTileHeight;
-        this.addFloorTile(this.getFloorTileKey(col, row, room), x, y, floorTileWidth, floorTileHeight, room);
-      }
-    }
+    this.drawFloorPanels(room, left, top, ROOM_WIDTH, ROOM_HEIGHT);
 
-    this.drawHorizontalWall(left, top, ROOM_WIDTH, room, 'top');
-    this.drawHorizontalWall(left, bottom - WALL_HEIGHT, ROOM_WIDTH, room, 'bottom');
-    this.drawSideWall(left, top, ROOM_HEIGHT, room, false);
-    this.drawSideWall(right - SIDE_WALL_WIDTH, top, ROOM_HEIGHT, room, true);
+    if (room.y === 0) this.drawHorizontalWall(left, top, ROOM_WIDTH, room, 'top');
+    if (room.y === ROOM_ROWS - 1) this.drawHorizontalWall(left, bottom - WALL_HEIGHT, ROOM_WIDTH, room, 'bottom');
+    if (room.x === 0) this.drawSideWall(left, top, ROOM_HEIGHT, room, false);
+    if (room.x === ROOM_COLS - 1) this.drawSideWall(right - SIDE_WALL_WIDTH, top, ROOM_HEIGHT, room, true);
 
-    if (room.y > 0) this.drawDoor(left + ROOM_WIDTH / 2 - DOOR_SIZE / 2, top, room, 'up');
-    if (room.y < ROOM_ROWS - 1) this.drawDoor(left + ROOM_WIDTH / 2 - DOOR_SIZE / 2, bottom - DOOR_SIZE, room, 'down');
-    if (room.x > 0) this.drawDoor(left - (DOOR_SIZE - SIDE_WALL_WIDTH) / 2, doorY - DOOR_SIZE / 2, room, 'left');
-    if (room.x < ROOM_COLS - 1) this.drawDoor(right - SIDE_WALL_WIDTH - (DOOR_SIZE - SIDE_WALL_WIDTH) / 2, doorY - DOOR_SIZE / 2, room, 'right');
+    if (room.x < ROOM_COLS - 1) this.drawDoor(right, doorY, room, this.getRoom(room.x + 1, room.y), 'right');
+    if (room.y < ROOM_ROWS - 1) this.drawDoor(doorX, bottom, room, this.getRoom(room.x, room.y + 1), 'down');
 
     const moteCount = room.type === 'neutral' ? 12 : 28;
     for (let i = 0; i < moteCount; i++) {
@@ -377,8 +363,26 @@ class RogueScene extends Phaser.Scene {
     return tile;
   }
 
+  drawFloorPanels(room, left, top, width, height) {
+    let row = 0;
+    for (let y = top; y < top + height; y += FLOOR_TILE_SIZE) {
+      let col = 0;
+      for (let x = left; x < left + width; x += FLOOR_TILE_SIZE) {
+        const drawWidth = Math.min(FLOOR_TILE_SIZE, left + width - x);
+        const drawHeight = Math.min(FLOOR_TILE_SIZE, top + height - y);
+        this.addFloorTile(this.getFloorTileKey(col, row, room), x, y, drawWidth, drawHeight, room);
+        col += 1;
+      }
+      row += 1;
+    }
+  }
+
   addFloorTile(key, x, y, width, height, room) {
-    const tile = this.add.image(x, y, key).setOrigin(0).setDepth(0).setDisplaySize(width, height);
+    const tile = this.add.image(x, y, key).setOrigin(0).setDepth(0);
+    const cropWidth = Math.round(256 * (width / FLOOR_TILE_SIZE));
+    const cropHeight = Math.round(256 * (height / FLOOR_TILE_SIZE));
+    if (width !== FLOOR_TILE_SIZE || height !== FLOOR_TILE_SIZE) tile.setCrop(0, 0, cropWidth, cropHeight);
+    tile.setDisplaySize(width, height);
     if (room.type === 'neutral') tile.setTint(0xd8d0ff);
     if (room.type === 'reward') tile.setTint(0xffefd0);
     this.floorTiles.add(tile);
@@ -399,11 +403,11 @@ class RogueScene extends Phaser.Scene {
     let index = 0;
     while (cursor < x + width - 1) {
       const remaining = x + width - cursor;
-      const useLarge = remaining >= 128 && (index + room.x + room.y) % 3 === 1;
+      const useLarge = remaining >= 64 && (index + room.x + room.y) % 3 === 1;
       const key = useLarge ? 'wall-large' : ((index + room.x * 2 + room.y) % 2 === 0 ? 'wall-1' : 'wall-2');
-      const tileWidth = useLarge ? 128 : 64;
+      const tileWidth = useLarge ? 64 : 32;
       const drawWidth = Math.min(tileWidth, remaining);
-      const wall = this.add.image(cursor, y, key).setOrigin(0).setDepth(2);
+      const wall = this.add.image(cursor, y, key).setOrigin(0).setDepth(2).setScale(WALL_SCALE);
       if (drawWidth !== tileWidth) wall.setDisplaySize(drawWidth, WALL_HEIGHT);
       if (edge === 'bottom') wall.setFlipY(true);
       this.floorTiles.add(wall);
@@ -415,7 +419,7 @@ class RogueScene extends Phaser.Scene {
   drawSideWall(x, y, height, room, flipX) {
     for (let cursor = y; cursor < y + height - 1; cursor += SIDE_WALL_HEIGHT) {
       const drawHeight = Math.min(SIDE_WALL_HEIGHT, y + height - cursor);
-      const wall = this.add.image(x, cursor, 'wall-side').setOrigin(0).setDepth(2).setFlipX(flipX);
+      const wall = this.add.image(x, cursor, 'wall-side').setOrigin(0).setDepth(2).setFlipX(flipX).setScale(WALL_SCALE);
       if (drawHeight !== SIDE_WALL_HEIGHT) wall.setDisplaySize(SIDE_WALL_WIDTH, drawHeight);
       if (room.type === 'neutral') wall.setTint(0xd8d0ff);
       if (room.type === 'reward') wall.setTint(0xffefd0);
@@ -423,22 +427,29 @@ class RogueScene extends Phaser.Scene {
     }
   }
 
-  drawDoor(x, y, room, direction) {
-    const door = this.add.image(x + DOOR_SIZE / 2, y + DOOR_SIZE / 2, 'door-open').setOrigin(0.5).setDepth(3);
-    const frame = this.add.image(x + DOOR_SIZE / 2, y + DOOR_SIZE / 2, 'wall-door-frame').setOrigin(0.5).setDepth(4);
-    const angle = direction === 'left' ? -90 : direction === 'right' ? 90 : direction === 'down' ? 180 : 0;
+  drawDoor(x, y, roomA, roomB, direction) {
+    const door = this.add.image(x, y, 'door-open').setOrigin(0.5).setDepth(3).setScale(WALL_SCALE);
+    const frame = this.add.image(x, y, 'wall-door-frame').setOrigin(0.5).setDepth(4).setScale(WALL_SCALE);
+    const angle = direction === 'right' ? 90 : direction === 'down' ? 180 : 0;
     door.setAngle(angle);
     frame.setAngle(angle);
     this.floorTiles.add(door);
     this.floorTiles.add(frame);
-    this.doorEntries.push({ room, direction, door });
+    this.doorEntries.push({ roomA, roomB, direction, door });
   }
 
   updateDoorStates() {
     if (!this.doorEntries) return;
     this.doorEntries.forEach((entry) => {
-      entry.door.setTexture(this.isRoomSealed(entry.room) ? 'door-closed' : 'door-open');
+      entry.door.setTexture(this.isDoorConnectionClosed(entry) ? 'door-closed' : 'door-open');
     });
+  }
+
+  isDoorConnectionClosed(entry) {
+    const current = this.getCurrentRoom();
+    if (!current) return false;
+    const touchesCurrent = (entry.roomA === current || entry.roomB === current);
+    return touchesCurrent && this.isRoomSealed(current);
   }
 
   isRoomSealed(room) {
@@ -458,13 +469,6 @@ class RogueScene extends Phaser.Scene {
 
   showRoomClear(room) {
     const bounds = this.getRoomBounds(room);
-    const doorX = bounds.centerX;
-    const doorY = bounds.centerY;
-    this.floor.fillStyle(0x31594f, 1);
-    if (room.y > 0) this.floor.fillRect(doorX - DOOR_HALF_SIZE, bounds.top, DOOR_HALF_SIZE * 2, TILE);
-    if (room.y < ROOM_ROWS - 1) this.floor.fillRect(doorX - DOOR_HALF_SIZE, bounds.bottom - TILE, DOOR_HALF_SIZE * 2, TILE);
-    if (room.x > 0) this.floor.fillRect(bounds.left, doorY - DOOR_HALF_SIZE, TILE, DOOR_HALF_SIZE * 2);
-    if (room.x < ROOM_COLS - 1) this.floor.fillRect(bounds.right - TILE, doorY - DOOR_HALF_SIZE, TILE, DOOR_HALF_SIZE * 2);
     this.floor.lineStyle(1, 0x7df9ff, 0.7);
     this.floor.strokeRect(bounds.left + 18, bounds.top + 18, ROOM_WIDTH - 36, ROOM_HEIGHT - 36);
   }
