@@ -4,7 +4,8 @@ import './styles.css';
 const GAME_WIDTH = 384;
 const GAME_HEIGHT = 216;
 const TILE = 16;
-const FLOOR_TILE_SIZE = 32;
+const FLOOR_COLS = 8;
+const FLOOR_ROWS = 4;
 const ROOM_WIDTH = GAME_WIDTH;
 const ROOM_HEIGHT = GAME_HEIGHT;
 const ROOM_COLS = 3;
@@ -141,6 +142,7 @@ class RogueScene extends Phaser.Scene {
     this.load.image('tile-floor', assetUrl('assets/tiles/tile_1.png'));
     this.load.image('tile-cracked', assetUrl('assets/tiles/tile_cracked.png'));
     this.load.image('tile-magic', assetUrl('assets/tiles/tile_magic.png'));
+    this.load.image('tile-magic-2', assetUrl('assets/tiles/tile_magic_2.png'));
   }
 
   create() {
@@ -309,17 +311,17 @@ class RogueScene extends Phaser.Scene {
     const doorY = top + ROOM_HEIGHT / 2;
 
     this.floorBack.fillStyle(room.type === 'neutral' ? 0x15131f : 0x111018, 1).fillRect(left, top, ROOM_WIDTH, ROOM_HEIGHT);
-    for (let y = top + TILE; y <= bottom - TILE - FLOOR_TILE_SIZE; y += FLOOR_TILE_SIZE) {
-      for (let x = left + TILE; x <= right - TILE - FLOOR_TILE_SIZE; x += FLOOR_TILE_SIZE) {
-        const seed = x / FLOOR_TILE_SIZE + y / FLOOR_TILE_SIZE + room.x * 7 + room.y * 11;
-        const frame = seed % 17 === 0
-          ? TILE_FRAME.fleckFloor
-          : seed % 11 === 0
-            ? TILE_FRAME.crackedFloor
-            : room.type === 'reward' && seed % 9 === 0
-              ? TILE_FRAME.rewardFloor
-              : TILE_FRAME.floor;
-        this.addFloorTile(frame, x, y, room);
+    const floorLeft = left + TILE;
+    const floorTop = top + TILE;
+    const floorWidth = ROOM_WIDTH - TILE * 2;
+    const floorHeight = ROOM_HEIGHT - TILE * 2;
+    const floorTileWidth = floorWidth / FLOOR_COLS;
+    const floorTileHeight = floorHeight / FLOOR_ROWS;
+    for (let row = 0; row < FLOOR_ROWS; row++) {
+      for (let col = 0; col < FLOOR_COLS; col++) {
+        const x = floorLeft + col * floorTileWidth;
+        const y = floorTop + row * floorTileHeight;
+        this.addFloorTile(this.getFloorTileKey(col, row, room), x, y, floorTileWidth, floorTileHeight, room);
       }
     }
 
@@ -358,22 +360,21 @@ class RogueScene extends Phaser.Scene {
     return tile;
   }
 
-  addFloorTile(frame, x, y, room) {
-    const floorKey = this.getFloorTileKey(frame);
-    const tile = floorKey
-      ? this.add.image(x, y, floorKey).setOrigin(0).setDepth(0).setDisplaySize(FLOOR_TILE_SIZE, FLOOR_TILE_SIZE)
-      : this.add.image(x, y, 'dungeon-tiles', frame).setOrigin(0).setDepth(0).setDisplaySize(FLOOR_TILE_SIZE, FLOOR_TILE_SIZE);
+  addFloorTile(key, x, y, width, height, room) {
+    const tile = this.add.image(x, y, key).setOrigin(0).setDepth(0).setDisplaySize(width, height);
     if (room.type === 'neutral') tile.setTint(0xd8d0ff);
     if (room.type === 'reward') tile.setTint(0xffefd0);
     this.floorTiles.add(tile);
     return tile;
   }
 
-  getFloorTileKey(frame) {
-    if (frame === TILE_FRAME.floor) return 'tile-floor';
-    if (frame === TILE_FRAME.crackedFloor) return 'tile-cracked';
-    if (frame === TILE_FRAME.fleckFloor || frame === TILE_FRAME.rewardFloor) return 'tile-magic';
-    return null;
+  getFloorTileKey(col, row, room) {
+    const seed = col * 13 + row * 17 + room.x * 19 + room.y * 23;
+    if (room.type === 'reward' && seed % 4 === 0) return 'tile-magic-2';
+    if (seed % 11 === 0) return 'tile-magic-2';
+    if (seed % 7 === 0) return 'tile-magic';
+    if (seed % 3 === 0) return 'tile-cracked';
+    return 'tile-floor';
   }
 
   drawDoorTiles(x, y, width, height, direction, room) {
