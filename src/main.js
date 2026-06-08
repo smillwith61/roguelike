@@ -23,6 +23,12 @@ const INK_BOTTLE_VALUE = 25;
 const clamp = Phaser.Math.Clamp;
 const dist = Phaser.Math.Distance.Between;
 const assetUrl = (path) => `${import.meta.env.BASE_URL}${path}`;
+const PLAYER_OUTLINE_OFFSETS = [
+  { x: -1, y: 0 },
+  { x: 1, y: 0 },
+  { x: 0, y: -1 },
+  { x: 0, y: 1 }
+];
 const TILE_FRAME = {
   floor: 0,
   crackedFloor: 1,
@@ -155,6 +161,13 @@ class RogueScene extends Phaser.Scene {
     this.player.body.setSize(12, 14);
     this.player.body.setOffset(10, 14);
     this.player.setCollideWorldBounds(true);
+    this.playerOutlineSprites = PLAYER_OUTLINE_OFFSETS.map((offset) => {
+      const outline = this.add.image(this.player.x + offset.x, this.player.y + offset.y, 'player', 0).setDepth(11);
+      outline.offset = offset;
+      outline.setTint(0x05030a);
+      outline.setAlpha(0.9);
+      return outline;
+    });
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -421,6 +434,7 @@ class RogueScene extends Phaser.Scene {
     this.player.setAngle(0);
     this.player.setAlpha(1);
     this.playerReadabilityLayer?.clear();
+    this.playerOutlineSprites?.forEach((outline) => outline.setVisible(true));
     this.player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
     this.player.play('player-idle', true);
     this.physics.resume();
@@ -796,6 +810,7 @@ class RogueScene extends Phaser.Scene {
     if (this.dead) {
       this.player.setVelocity(0, 0);
       this.playerReadabilityLayer.clear();
+      this.playerOutlineSprites.forEach((outline) => outline.setVisible(false));
       this.updateProjectiles(delta);
       if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.respawnPlayer();
       this.statusText.setText('YOU FELL - PRESS R TO RESPAWN');
@@ -874,11 +889,20 @@ class RogueScene extends Phaser.Scene {
 
   drawPlayerReadability() {
     this.playerReadabilityLayer.clear();
+    this.playerOutlineSprites.forEach((outline) => outline.setVisible(!this.dead));
     if (this.dead) return;
     const x = this.player.x;
     const y = this.player.y + 8;
     this.playerReadabilityLayer.fillStyle(0x030208, 0.58);
     this.playerReadabilityLayer.fillEllipse(x, y + 7, 24, 9);
+    this.playerOutlineSprites.forEach((outline) => {
+      outline.setVisible(true);
+      outline.setFrame(this.player.frame.name);
+      outline.setPosition(this.player.x + outline.offset.x, this.player.y + outline.offset.y);
+      outline.setFlipX(this.player.flipX);
+      outline.setAngle(this.player.angle);
+      outline.setAlpha(this.player.alpha * 0.9);
+    });
   }
 
   updateRoomTravel() {
@@ -1063,6 +1087,7 @@ class RogueScene extends Phaser.Scene {
     this.player.setAngle(90);
     this.player.setAlpha(0.72);
     this.playerReadabilityLayer.clear();
+    this.playerOutlineSprites.forEach((outline) => outline.setVisible(false));
     this.enemies.forEach((enemy) => {
       enemy.setVelocity(0, 0);
       enemy.anims.pause();
