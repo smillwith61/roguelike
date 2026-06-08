@@ -21,6 +21,16 @@ const INK_BOTTLE_VALUE = 25;
 const clamp = Phaser.Math.Clamp;
 const dist = Phaser.Math.Distance.Between;
 const assetUrl = (path) => `${import.meta.env.BASE_URL}${path}`;
+const TILE_FRAME = {
+  floor: 0,
+  crackedFloor: 1,
+  fleckFloor: 2,
+  horizontalWall: 3,
+  verticalWall: 4,
+  cornerWall: 5,
+  threshold: 6,
+  rewardFloor: 7
+};
 
 const SPELL_COLORS = [0x7df9ff, 0xffd166, 0xef476f, 0xa855f7, 0x75f2a7, 0xf78c6b];
 const SPELL_ARCHETYPES = [
@@ -298,24 +308,30 @@ class RogueScene extends Phaser.Scene {
     for (let y = top + TILE; y < bottom - TILE; y += TILE) {
       for (let x = left + TILE; x < right - TILE; x += TILE) {
         const seed = x / TILE + y / TILE + room.x * 7 + room.y * 11;
-        const frame = seed % 17 === 0 ? 2 : seed % 11 === 0 ? 1 : room.type === 'reward' && seed % 9 === 0 ? 7 : 0;
+        const frame = seed % 17 === 0
+          ? TILE_FRAME.fleckFloor
+          : seed % 11 === 0
+            ? TILE_FRAME.crackedFloor
+            : room.type === 'reward' && seed % 9 === 0
+              ? TILE_FRAME.rewardFloor
+              : TILE_FRAME.floor;
         this.addRoomTile(frame, x, y, room);
       }
     }
 
     for (let x = left; x < right; x += TILE) {
-      this.addRoomTile(3, x, top, room);
-      this.addRoomTile(3, x, bottom - TILE, room);
+      this.addRoomTile(TILE_FRAME.horizontalWall, x, top, room);
+      this.addRoomTile(TILE_FRAME.horizontalWall, x, bottom - TILE, room);
     }
     for (let y = top + TILE; y < bottom - TILE; y += TILE) {
-      this.addRoomTile(4, left, y, room);
-      this.addRoomTile(4, right - TILE, y, room);
+      this.addRoomTile(TILE_FRAME.verticalWall, left, y, room);
+      this.addRoomTile(TILE_FRAME.verticalWall, right - TILE, y, room);
     }
 
-    this.addRoomTile(5, left, top, room);
-    this.addRoomTile(5, right - TILE, top, room);
-    this.addRoomTile(5, left, bottom - TILE, room);
-    this.addRoomTile(5, right - TILE, bottom - TILE, room);
+    this.addRoomTile(TILE_FRAME.cornerWall, left, top, room);
+    this.addRoomTile(TILE_FRAME.cornerWall, right - TILE, top, room);
+    this.addRoomTile(TILE_FRAME.cornerWall, left, bottom - TILE, room);
+    this.addRoomTile(TILE_FRAME.cornerWall, right - TILE, bottom - TILE, room);
 
     if (room.y > 0) this.drawDoorTiles(doorX - DOOR_HALF_SIZE, top, DOOR_HALF_SIZE * 2, TILE, 'horizontal', room);
     if (room.y < ROOM_ROWS - 1) this.drawDoorTiles(doorX - DOOR_HALF_SIZE, bottom - TILE, DOOR_HALF_SIZE * 2, TILE, 'horizontal', room);
@@ -340,10 +356,10 @@ class RogueScene extends Phaser.Scene {
 
   drawDoorTiles(x, y, width, height, direction, room) {
     if (direction === 'horizontal') {
-      for (let tx = x; tx < x + width; tx += TILE) this.addRoomTile(6, tx, y, room);
+      for (let tx = x; tx < x + width; tx += TILE) this.addRoomTile(TILE_FRAME.threshold, tx, y, room);
       return;
     }
-    for (let ty = y; ty < y + height; ty += TILE) this.addRoomTile(6, x, ty, room);
+    for (let ty = y; ty < y + height; ty += TILE) this.addRoomTile(TILE_FRAME.threshold, x, ty, room);
   }
 
   showRoomClear(room) {
