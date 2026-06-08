@@ -6,6 +6,10 @@ const GAME_HEIGHT = 216;
 const TILE = 16;
 const FLOOR_COLS = 4;
 const FLOOR_ROWS = 2;
+const WALL_HEIGHT = 64;
+const SIDE_WALL_WIDTH = 8;
+const SIDE_WALL_HEIGHT = 96;
+const DOOR_SIZE = 64;
 const ROOM_WIDTH = GAME_WIDTH;
 const ROOM_HEIGHT = GAME_HEIGHT;
 const ROOM_COLS = 3;
@@ -149,6 +153,13 @@ class RogueScene extends Phaser.Scene {
     this.load.image('tile-cracked', assetUrl('assets/tiles/tile_cracked.png'));
     this.load.image('tile-magic', assetUrl('assets/tiles/tile_magic.png'));
     this.load.image('tile-magic-2', assetUrl('assets/tiles/tile_magic_2.png'));
+    this.load.image('wall-1', assetUrl('assets/tiles/walls/wall1.png'));
+    this.load.image('wall-2', assetUrl('assets/tiles/walls/wall2.png'));
+    this.load.image('wall-large', assetUrl('assets/tiles/walls/walllarge.png'));
+    this.load.image('wall-side', assetUrl('assets/tiles/walls/wallside.png'));
+    this.load.image('wall-door-frame', assetUrl('assets/tiles/walls/walldoorframe.png'));
+    this.load.image('door-open', assetUrl('assets/tiles/walls/doorOpen.png'));
+    this.load.image('door-closed', assetUrl('assets/tiles/walls/doorClosed.png'));
   }
 
   create() {
@@ -287,6 +298,7 @@ class RogueScene extends Phaser.Scene {
     if (this.floorBack) this.floorBack.destroy();
     if (this.floor) this.floor.destroy();
     if (this.floorTiles) this.floorTiles.clear(true, true);
+    this.doorEntries = [];
     this.floorBack = this.add.graphics().setDepth(-2);
     this.floorBack.fillStyle(0x09080d, 1).fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.floor = this.add.graphics().setDepth(1);
@@ -325,10 +337,10 @@ class RogueScene extends Phaser.Scene {
     const doorY = top + ROOM_HEIGHT / 2;
 
     this.floorBack.fillStyle(room.type === 'neutral' ? 0x15131f : 0x111018, 1).fillRect(left, top, ROOM_WIDTH, ROOM_HEIGHT);
-    const floorLeft = left + TILE;
-    const floorTop = top + TILE;
-    const floorWidth = ROOM_WIDTH - TILE * 2;
-    const floorHeight = ROOM_HEIGHT - TILE * 2;
+    const floorLeft = left + SIDE_WALL_WIDTH;
+    const floorTop = top + WALL_HEIGHT;
+    const floorWidth = ROOM_WIDTH - SIDE_WALL_WIDTH * 2;
+    const floorHeight = ROOM_HEIGHT - WALL_HEIGHT * 2;
     const floorTileWidth = floorWidth / FLOOR_COLS;
     const floorTileHeight = floorHeight / FLOOR_ROWS;
     for (let row = 0; row < FLOOR_ROWS; row++) {
@@ -339,24 +351,15 @@ class RogueScene extends Phaser.Scene {
       }
     }
 
-    for (let x = left; x < right; x += TILE) {
-      this.addRoomTile(TILE_FRAME.horizontalWall, x, top, room);
-      this.addRoomTile(TILE_FRAME.horizontalWall, x, bottom - TILE, room);
-    }
-    for (let y = top + TILE; y < bottom - TILE; y += TILE) {
-      this.addRoomTile(TILE_FRAME.verticalWall, left, y, room);
-      this.addRoomTile(TILE_FRAME.verticalWall, right - TILE, y, room);
-    }
+    this.drawHorizontalWall(left, top, ROOM_WIDTH, room, 'top');
+    this.drawHorizontalWall(left, bottom - WALL_HEIGHT, ROOM_WIDTH, room, 'bottom');
+    this.drawSideWall(left, top, ROOM_HEIGHT, room, false);
+    this.drawSideWall(right - SIDE_WALL_WIDTH, top, ROOM_HEIGHT, room, true);
 
-    this.addRoomTile(TILE_FRAME.cornerWall, left, top, room);
-    this.addRoomTile(TILE_FRAME.cornerWall, right - TILE, top, room);
-    this.addRoomTile(TILE_FRAME.cornerWall, left, bottom - TILE, room);
-    this.addRoomTile(TILE_FRAME.cornerWall, right - TILE, bottom - TILE, room);
-
-    if (room.y > 0) this.drawDoorTiles(doorX - DOOR_HALF_SIZE, top, DOOR_HALF_SIZE * 2, TILE, 'horizontal', room);
-    if (room.y < ROOM_ROWS - 1) this.drawDoorTiles(doorX - DOOR_HALF_SIZE, bottom - TILE, DOOR_HALF_SIZE * 2, TILE, 'horizontal', room);
-    if (room.x > 0) this.drawDoorTiles(left, doorY - DOOR_HALF_SIZE, TILE, DOOR_HALF_SIZE * 2, 'vertical', room);
-    if (room.x < ROOM_COLS - 1) this.drawDoorTiles(right - TILE, doorY - DOOR_HALF_SIZE, TILE, DOOR_HALF_SIZE * 2, 'vertical', room);
+    if (room.y > 0) this.drawDoor(left + ROOM_WIDTH / 2 - DOOR_SIZE / 2, top, room, 'up');
+    if (room.y < ROOM_ROWS - 1) this.drawDoor(left + ROOM_WIDTH / 2 - DOOR_SIZE / 2, bottom - DOOR_SIZE, room, 'down');
+    if (room.x > 0) this.drawDoor(left - (DOOR_SIZE - SIDE_WALL_WIDTH) / 2, doorY - DOOR_SIZE / 2, room, 'left');
+    if (room.x < ROOM_COLS - 1) this.drawDoor(right - SIDE_WALL_WIDTH - (DOOR_SIZE - SIDE_WALL_WIDTH) / 2, doorY - DOOR_SIZE / 2, room, 'right');
 
     const moteCount = room.type === 'neutral' ? 12 : 28;
     for (let i = 0; i < moteCount; i++) {
@@ -389,6 +392,60 @@ class RogueScene extends Phaser.Scene {
     if (seed % 11 === 0) return 'tile-magic';
     if (seed % 3 === 0) return 'tile-cracked';
     return 'tile-floor';
+  }
+
+  drawHorizontalWall(x, y, width, room, edge) {
+    let cursor = x;
+    let index = 0;
+    while (cursor < x + width - 1) {
+      const remaining = x + width - cursor;
+      const useLarge = remaining >= 128 && (index + room.x + room.y) % 3 === 1;
+      const key = useLarge ? 'wall-large' : ((index + room.x * 2 + room.y) % 2 === 0 ? 'wall-1' : 'wall-2');
+      const tileWidth = useLarge ? 128 : 64;
+      const drawWidth = Math.min(tileWidth, remaining);
+      const wall = this.add.image(cursor, y, key).setOrigin(0).setDepth(2);
+      if (drawWidth !== tileWidth) wall.setDisplaySize(drawWidth, WALL_HEIGHT);
+      if (edge === 'bottom') wall.setFlipY(true);
+      this.floorTiles.add(wall);
+      cursor += drawWidth;
+      index += 1;
+    }
+  }
+
+  drawSideWall(x, y, height, room, flipX) {
+    for (let cursor = y; cursor < y + height - 1; cursor += SIDE_WALL_HEIGHT) {
+      const drawHeight = Math.min(SIDE_WALL_HEIGHT, y + height - cursor);
+      const wall = this.add.image(x, cursor, 'wall-side').setOrigin(0).setDepth(2).setFlipX(flipX);
+      if (drawHeight !== SIDE_WALL_HEIGHT) wall.setDisplaySize(SIDE_WALL_WIDTH, drawHeight);
+      if (room.type === 'neutral') wall.setTint(0xd8d0ff);
+      if (room.type === 'reward') wall.setTint(0xffefd0);
+      this.floorTiles.add(wall);
+    }
+  }
+
+  drawDoor(x, y, room, direction) {
+    const door = this.add.image(x + DOOR_SIZE / 2, y + DOOR_SIZE / 2, 'door-open').setOrigin(0.5).setDepth(3);
+    const frame = this.add.image(x + DOOR_SIZE / 2, y + DOOR_SIZE / 2, 'wall-door-frame').setOrigin(0.5).setDepth(4);
+    const angle = direction === 'left' ? -90 : direction === 'right' ? 90 : direction === 'down' ? 180 : 0;
+    door.setAngle(angle);
+    frame.setAngle(angle);
+    this.floorTiles.add(door);
+    this.floorTiles.add(frame);
+    this.doorEntries.push({ room, direction, door });
+  }
+
+  updateDoorStates() {
+    if (!this.doorEntries) return;
+    this.doorEntries.forEach((entry) => {
+      entry.door.setTexture(this.isRoomSealed(entry.room) ? 'door-closed' : 'door-open');
+    });
+  }
+
+  isRoomSealed(room) {
+    if (!room) return false;
+    if (room.type === 'neutral' && this.weapons.length === 0) return true;
+    return room.type === 'combat' && room.visited && !room.cleared && this.enemies.length > 0
+      && room.x === this.currentRoom.x && room.y === this.currentRoom.y;
   }
 
   drawDoorTiles(x, y, width, height, direction, room) {
@@ -843,6 +900,7 @@ class RogueScene extends Phaser.Scene {
     this.updateEnemies(time, delta);
     this.updateEnemyProjectiles(delta);
     this.updateProjectiles(delta);
+    this.updateDoorStates();
     this.drawHud();
 
     if (this.enemies.length === 0) {
@@ -851,6 +909,7 @@ class RogueScene extends Phaser.Scene {
         room.cleared = true;
         this.wave += 1;
         this.showRoomClear(room);
+        this.updateDoorStates();
       }
     }
   }
