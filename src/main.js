@@ -126,6 +126,7 @@ class RogueScene extends Phaser.Scene {
     this.load.spritesheet('candle', assetUrl('assets/sprites/candle-minion-32.png'), { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('brute', assetUrl('assets/sprites/crystal-brute-32.png'), { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('magic', assetUrl('assets/sprites/magic-32.png'), { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('dungeon-tiles', assetUrl('assets/tiles/dungeon-runtime-16.png'), { frameWidth: 16, frameHeight: 16 });
   }
 
   create() {
@@ -253,9 +254,13 @@ class RogueScene extends Phaser.Scene {
   }
 
   buildDungeon() {
+    if (this.floorBack) this.floorBack.destroy();
     if (this.floor) this.floor.destroy();
-    this.floor = this.add.graphics().setDepth(0);
-    this.floor.fillStyle(0x171622, 1).fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    if (this.floorTiles) this.floorTiles.clear(true, true);
+    this.floorBack = this.add.graphics().setDepth(-2);
+    this.floorBack.fillStyle(0x09080d, 1).fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    this.floor = this.add.graphics().setDepth(1);
+    this.floorTiles = this.add.group();
     this.rooms = [];
     const rewardRoomKey = Phaser.Utils.Array.GetRandom([
       '0,0',
@@ -289,25 +294,33 @@ class RogueScene extends Phaser.Scene {
     const doorX = left + ROOM_WIDTH / 2;
     const doorY = top + ROOM_HEIGHT / 2;
 
-    this.floor.fillStyle(room.type === 'neutral' ? 0x1b1a27 : 0x171622, 1).fillRect(left, top, ROOM_WIDTH, ROOM_HEIGHT);
-    for (let y = top; y < bottom; y += TILE) {
-      for (let x = left; x < right; x += TILE) {
-        const color = ((x / TILE + y / TILE) % 2 ? 0x1b1a27 : 0x191825);
-        this.floor.fillStyle(color, 1).fillRect(x, y, TILE - 1, TILE - 1);
+    this.floorBack.fillStyle(room.type === 'neutral' ? 0x15131f : 0x111018, 1).fillRect(left, top, ROOM_WIDTH, ROOM_HEIGHT);
+    for (let y = top + TILE; y < bottom - TILE; y += TILE) {
+      for (let x = left + TILE; x < right - TILE; x += TILE) {
+        const seed = x / TILE + y / TILE + room.x * 7 + room.y * 11;
+        const frame = seed % 17 === 0 ? 2 : seed % 11 === 0 ? 1 : room.type === 'reward' && seed % 9 === 0 ? 7 : 0;
+        this.addRoomTile(frame, x, y, room);
       }
     }
 
-    this.floor.fillStyle(0x2f2840, 1);
-    this.floor.fillRect(left, top, ROOM_WIDTH, TILE);
-    this.floor.fillRect(left, bottom - TILE, ROOM_WIDTH, TILE);
-    this.floor.fillRect(left, top, TILE, ROOM_HEIGHT);
-    this.floor.fillRect(right - TILE, top, TILE, ROOM_HEIGHT);
+    for (let x = left; x < right; x += TILE) {
+      this.addRoomTile(3, x, top, room);
+      this.addRoomTile(3, x, bottom - TILE, room);
+    }
+    for (let y = top + TILE; y < bottom - TILE; y += TILE) {
+      this.addRoomTile(4, left, y, room);
+      this.addRoomTile(4, right - TILE, y, room);
+    }
 
-    this.floor.fillStyle(0x191825, 1);
-    if (room.y > 0) this.floor.fillRect(doorX - DOOR_HALF_SIZE, top, DOOR_HALF_SIZE * 2, TILE);
-    if (room.y < ROOM_ROWS - 1) this.floor.fillRect(doorX - DOOR_HALF_SIZE, bottom - TILE, DOOR_HALF_SIZE * 2, TILE);
-    if (room.x > 0) this.floor.fillRect(left, doorY - DOOR_HALF_SIZE, TILE, DOOR_HALF_SIZE * 2);
-    if (room.x < ROOM_COLS - 1) this.floor.fillRect(right - TILE, doorY - DOOR_HALF_SIZE, TILE, DOOR_HALF_SIZE * 2);
+    this.addRoomTile(5, left, top, room);
+    this.addRoomTile(5, right - TILE, top, room);
+    this.addRoomTile(5, left, bottom - TILE, room);
+    this.addRoomTile(5, right - TILE, bottom - TILE, room);
+
+    if (room.y > 0) this.drawDoorTiles(doorX - DOOR_HALF_SIZE, top, DOOR_HALF_SIZE * 2, TILE, 'horizontal', room);
+    if (room.y < ROOM_ROWS - 1) this.drawDoorTiles(doorX - DOOR_HALF_SIZE, bottom - TILE, DOOR_HALF_SIZE * 2, TILE, 'horizontal', room);
+    if (room.x > 0) this.drawDoorTiles(left, doorY - DOOR_HALF_SIZE, TILE, DOOR_HALF_SIZE * 2, 'vertical', room);
+    if (room.x < ROOM_COLS - 1) this.drawDoorTiles(right - TILE, doorY - DOOR_HALF_SIZE, TILE, DOOR_HALF_SIZE * 2, 'vertical', room);
 
     const moteCount = room.type === 'neutral' ? 12 : 28;
     for (let i = 0; i < moteCount; i++) {
@@ -315,6 +328,22 @@ class RogueScene extends Phaser.Scene {
       const y = Phaser.Math.Between(top + 24, bottom - 24);
       this.floor.fillStyle(room.type === 'reward' ? 0x2c2a3d : 0x242234, 1).fillRect(x, y, 3, 3);
     }
+  }
+
+  addRoomTile(frame, x, y, room) {
+    const tile = this.add.image(x, y, 'dungeon-tiles', frame).setOrigin(0).setDepth(0);
+    if (room.type === 'neutral') tile.setTint(0xd8d0ff);
+    if (room.type === 'reward') tile.setTint(0xffefd0);
+    this.floorTiles.add(tile);
+    return tile;
+  }
+
+  drawDoorTiles(x, y, width, height, direction, room) {
+    if (direction === 'horizontal') {
+      for (let tx = x; tx < x + width; tx += TILE) this.addRoomTile(6, tx, y, room);
+      return;
+    }
+    for (let ty = y; ty < y + height; ty += TILE) this.addRoomTile(6, x, ty, room);
   }
 
   showRoomClear(room) {
