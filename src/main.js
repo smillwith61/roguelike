@@ -4,6 +4,7 @@ import './styles.css';
 const GAME_WIDTH = 384;
 const GAME_HEIGHT = 216;
 const TILE = 16;
+const FLOOR_TILE_SIZE = 32;
 const ROOM_WIDTH = GAME_WIDTH;
 const ROOM_HEIGHT = GAME_HEIGHT;
 const ROOM_COLS = 3;
@@ -308,9 +309,9 @@ class RogueScene extends Phaser.Scene {
     const doorY = top + ROOM_HEIGHT / 2;
 
     this.floorBack.fillStyle(room.type === 'neutral' ? 0x15131f : 0x111018, 1).fillRect(left, top, ROOM_WIDTH, ROOM_HEIGHT);
-    for (let y = top + TILE; y < bottom - TILE; y += TILE) {
-      for (let x = left + TILE; x < right - TILE; x += TILE) {
-        const seed = x / TILE + y / TILE + room.x * 7 + room.y * 11;
+    for (let y = top + TILE; y <= bottom - TILE - FLOOR_TILE_SIZE; y += FLOOR_TILE_SIZE) {
+      for (let x = left + TILE; x <= right - TILE - FLOOR_TILE_SIZE; x += FLOOR_TILE_SIZE) {
+        const seed = x / FLOOR_TILE_SIZE + y / FLOOR_TILE_SIZE + room.x * 7 + room.y * 11;
         const frame = seed % 17 === 0
           ? TILE_FRAME.fleckFloor
           : seed % 11 === 0
@@ -318,7 +319,7 @@ class RogueScene extends Phaser.Scene {
             : room.type === 'reward' && seed % 9 === 0
               ? TILE_FRAME.rewardFloor
               : TILE_FRAME.floor;
-        this.addRoomTile(frame, x, y, room);
+        this.addFloorTile(frame, x, y, room);
       }
     }
 
@@ -350,10 +351,18 @@ class RogueScene extends Phaser.Scene {
   }
 
   addRoomTile(frame, x, y, room) {
+    const tile = this.add.image(x, y, 'dungeon-tiles', frame).setOrigin(0).setDepth(0);
+    if (room.type === 'neutral') tile.setTint(0xd8d0ff);
+    if (room.type === 'reward') tile.setTint(0xffefd0);
+    this.floorTiles.add(tile);
+    return tile;
+  }
+
+  addFloorTile(frame, x, y, room) {
     const floorKey = this.getFloorTileKey(frame);
     const tile = floorKey
-      ? this.add.image(x, y, floorKey).setOrigin(0).setDepth(0).setDisplaySize(TILE, TILE)
-      : this.add.image(x, y, 'dungeon-tiles', frame).setOrigin(0).setDepth(0);
+      ? this.add.image(x, y, floorKey).setOrigin(0).setDepth(0).setDisplaySize(FLOOR_TILE_SIZE, FLOOR_TILE_SIZE)
+      : this.add.image(x, y, 'dungeon-tiles', frame).setOrigin(0).setDepth(0).setDisplaySize(FLOOR_TILE_SIZE, FLOOR_TILE_SIZE);
     if (room.type === 'neutral') tile.setTint(0xd8d0ff);
     if (room.type === 'reward') tile.setTint(0xffefd0);
     this.floorTiles.add(tile);
