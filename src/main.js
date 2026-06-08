@@ -163,6 +163,7 @@ class RogueScene extends Phaser.Scene {
     this.keys = this.input.keyboard.addKeys(`W,A,S,D,UP,LEFT,DOWN,RIGHT,R,${HOTBAR_KEYS.join(',')}`);
     this.pointer = this.input.activePointer;
 
+    this.playerReadabilityLayer = this.add.graphics().setDepth(11);
     this.attackLayer = this.add.graphics().setDepth(18);
     this.worldDrawLayer = this.add.graphics().setDepth(20);
 
@@ -419,6 +420,7 @@ class RogueScene extends Phaser.Scene {
     this.player.clearTint();
     this.player.setAngle(0);
     this.player.setAlpha(1);
+    this.playerReadabilityLayer?.clear();
     this.player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
     this.player.play('player-idle', true);
     this.physics.resume();
@@ -793,6 +795,7 @@ class RogueScene extends Phaser.Scene {
   update(time, delta) {
     if (this.dead) {
       this.player.setVelocity(0, 0);
+      this.playerReadabilityLayer.clear();
       this.updateProjectiles(delta);
       if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.respawnPlayer();
       this.statusText.setText('YOU FELL - PRESS R TO RESPAWN');
@@ -819,6 +822,7 @@ class RogueScene extends Phaser.Scene {
 
     this.handleWeaponKeys();
     this.updatePlayer();
+    this.drawPlayerReadability();
     this.updateRoomTravel();
     this.updatePickups(time);
     this.updateEnemies(time, delta);
@@ -866,6 +870,19 @@ class RogueScene extends Phaser.Scene {
       this.player.setFlipX(false);
       this.player.play('player-idle', true);
     }
+  }
+
+  drawPlayerReadability() {
+    this.playerReadabilityLayer.clear();
+    if (this.dead) return;
+    const x = this.player.x;
+    const y = this.player.y + 8;
+    this.playerReadabilityLayer.fillStyle(0x030208, 0.58);
+    this.playerReadabilityLayer.fillEllipse(x, y + 7, 24, 9);
+    this.playerReadabilityLayer.lineStyle(2, 0x6ff4ff, 0.42);
+    this.playerReadabilityLayer.strokeEllipse(x, y + 1, 21, 22);
+    this.playerReadabilityLayer.lineStyle(1, 0xf8f4dc, 0.22);
+    this.playerReadabilityLayer.strokeEllipse(x, y + 1, 15, 17);
   }
 
   updateRoomTravel() {
@@ -1049,6 +1066,7 @@ class RogueScene extends Phaser.Scene {
     this.player.setTint(0x4b3b55);
     this.player.setAngle(90);
     this.player.setAlpha(0.72);
+    this.playerReadabilityLayer.clear();
     this.enemies.forEach((enemy) => {
       enemy.setVelocity(0, 0);
       enemy.anims.pause();
