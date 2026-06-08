@@ -372,7 +372,7 @@ class RogueScene extends Phaser.Scene {
     const cropWidth = Math.round(256 * (width / FLOOR_TILE_SIZE));
     const cropHeight = Math.round(256 * (height / FLOOR_TILE_SIZE));
     if (width !== FLOOR_TILE_SIZE || height !== FLOOR_TILE_SIZE) tile.setCrop(0, 0, cropWidth, cropHeight);
-    tile.setDisplaySize(width, height);
+    tile.setScale(FLOOR_TILE_SIZE / 256);
     this.floorTiles.add(tile);
     return tile;
   }
@@ -391,6 +391,7 @@ class RogueScene extends Phaser.Scene {
       const y = row * ROOM_HEIGHT - (row === ROOM_ROWS ? WALL_HEIGHT : 0);
       for (let col = 0; col < ROOM_COLS; col++) {
         const x = col * ROOM_WIDTH;
+        this.drawWallBacking(x, y, ROOM_WIDTH, WALL_HEIGHT, col, row);
         if (row === 0 || row === ROOM_ROWS) {
           this.drawHorizontalWall(x, y, ROOM_WIDTH, this.getRoom(col, clamp(row, 0, ROOM_ROWS - 1)), row === ROOM_ROWS ? 'bottom' : 'top');
         } else {
@@ -420,6 +421,16 @@ class RogueScene extends Phaser.Scene {
           this.drawSideWall(x, gapTop + gapHeight, y + ROOM_HEIGHT - (gapTop + gapHeight), null, false);
         }
       }
+    }
+  }
+
+  drawWallBacking(x, y, width, height, col, row) {
+    const fakeRoom = this.getRoom(clamp(col, 0, ROOM_COLS - 1), clamp(row, 0, ROOM_ROWS - 1)) || this.getRoom(START_ROOM.x, START_ROOM.y);
+    let tileCol = 0;
+    for (let tx = x; tx < x + width; tx += FLOOR_TILE_SIZE) {
+      const drawWidth = Math.min(FLOOR_TILE_SIZE, x + width - tx);
+      this.addFloorTile(this.getFloorTileKey(tileCol, row, fakeRoom), tx, y, drawWidth, height, fakeRoom);
+      tileCol += 1;
     }
   }
 
