@@ -373,8 +373,6 @@ class RogueScene extends Phaser.Scene {
     const cropHeight = Math.round(256 * (height / FLOOR_TILE_SIZE));
     if (width !== FLOOR_TILE_SIZE || height !== FLOOR_TILE_SIZE) tile.setCrop(0, 0, cropWidth, cropHeight);
     tile.setDisplaySize(width, height);
-    if (room.type === 'neutral') tile.setTint(0xd8d0ff);
-    if (room.type === 'reward') tile.setTint(0xffefd0);
     this.floorTiles.add(tile);
     return tile;
   }
