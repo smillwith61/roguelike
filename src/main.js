@@ -231,7 +231,8 @@ class RogueScene extends Phaser.Scene {
   }
 
   createAnimations() {
-    this.anims.create({ key: 'player-idle', frames: this.anims.generateFrameNumbers('player', { frames: [0, 1, 2, 3] }), frameRate: 5, repeat: -1 });
+    this.anims.create({ key: 'player-idle', frames: this.anims.generateFrameNumbers('player', { frames: [0] }), frameRate: 1, repeat: -1 });
+    this.anims.create({ key: 'player-down', frames: this.anims.generateFrameNumbers('player', { frames: [0, 1, 2, 3] }), frameRate: 8, repeat: -1 });
     this.anims.create({ key: 'player-side', frames: this.anims.generateFrameNumbers('player', { frames: [4, 5, 6, 7] }), frameRate: 8, repeat: -1 });
     this.anims.create({ key: 'player-up', frames: this.anims.generateFrameNumbers('player', { frames: [8, 9, 10, 11] }), frameRate: 8, repeat: -1 });
     this.anims.create({ key: 'player-cast', frames: this.anims.generateFrameNumbers('player', { frames: [12, 13, 14, 15] }), frameRate: 10, repeat: -1 });
@@ -875,12 +876,15 @@ class RogueScene extends Phaser.Scene {
     const len = Math.hypot(vx, vy) || 1;
     this.player.setVelocity((vx / len) * 82, (vy / len) * 82);
     this.player.setAlpha(this.invuln > 0 && Math.floor(this.invuln / 70) % 2 ? 0.45 : 1);
-    if (vy < 0) {
+    if (vx !== 0 && Math.abs(vx) >= Math.abs(vy)) {
+      this.player.setFlipX(vx < 0);
+      this.player.play('player-side', true);
+    } else if (vy < 0) {
       this.player.setFlipX(false);
       this.player.play('player-up', true);
-    } else if (vx !== 0 || vy !== 0) {
-      this.player.setFlipX(vx < 0);
-      this.player.play(vx !== 0 ? 'player-side' : 'player-idle', true);
+    } else if (vy > 0) {
+      this.player.setFlipX(false);
+      this.player.play('player-down', true);
     } else {
       this.player.setFlipX(false);
       this.player.play('player-idle', true);
