@@ -4,8 +4,8 @@ import './styles.css';
 const GAME_WIDTH = 384;
 const GAME_HEIGHT = 216;
 const TILE = 16;
-const FLOOR_COLS = 8;
-const FLOOR_ROWS = 4;
+const FLOOR_COLS = 4;
+const FLOOR_ROWS = 2;
 const ROOM_WIDTH = GAME_WIDTH;
 const ROOM_HEIGHT = GAME_HEIGHT;
 const ROOM_COLS = 3;
@@ -370,9 +370,9 @@ class RogueScene extends Phaser.Scene {
 
   getFloorTileKey(col, row, room) {
     const seed = col * 13 + row * 17 + room.x * 19 + room.y * 23;
-    if (room.type === 'reward' && seed % 4 === 0) return 'tile-magic-2';
-    if (seed % 11 === 0) return 'tile-magic-2';
-    if (seed % 7 === 0) return 'tile-magic';
+    if (room.type === 'reward' && seed % 5 === 0) return 'tile-magic-2';
+    if (seed % 13 === 0) return 'tile-magic-2';
+    if (seed % 11 === 0) return 'tile-magic';
     if (seed % 3 === 0) return 'tile-cracked';
     return 'tile-floor';
   }
