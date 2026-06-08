@@ -137,6 +137,9 @@ class RogueScene extends Phaser.Scene {
     this.load.spritesheet('brute', assetUrl('assets/sprites/crystal-brute-32.png'), { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('magic', assetUrl('assets/sprites/magic-32.png'), { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('dungeon-tiles', assetUrl('assets/tiles/dungeon-runtime-16.png'), { frameWidth: 16, frameHeight: 16 });
+    this.load.image('tile-floor', assetUrl('assets/tiles/tile_1.png'));
+    this.load.image('tile-cracked', assetUrl('assets/tiles/tile_cracked.png'));
+    this.load.image('tile-magic', assetUrl('assets/tiles/tile_magic.png'));
   }
 
   create() {
@@ -347,11 +350,21 @@ class RogueScene extends Phaser.Scene {
   }
 
   addRoomTile(frame, x, y, room) {
-    const tile = this.add.image(x, y, 'dungeon-tiles', frame).setOrigin(0).setDepth(0);
+    const floorKey = this.getFloorTileKey(frame);
+    const tile = floorKey
+      ? this.add.image(x, y, floorKey).setOrigin(0).setDepth(0).setDisplaySize(TILE, TILE)
+      : this.add.image(x, y, 'dungeon-tiles', frame).setOrigin(0).setDepth(0);
     if (room.type === 'neutral') tile.setTint(0xd8d0ff);
     if (room.type === 'reward') tile.setTint(0xffefd0);
     this.floorTiles.add(tile);
     return tile;
+  }
+
+  getFloorTileKey(frame) {
+    if (frame === TILE_FRAME.floor) return 'tile-floor';
+    if (frame === TILE_FRAME.crackedFloor) return 'tile-cracked';
+    if (frame === TILE_FRAME.fleckFloor || frame === TILE_FRAME.rewardFloor) return 'tile-magic';
+    return null;
   }
 
   drawDoorTiles(x, y, width, height, direction, room) {
