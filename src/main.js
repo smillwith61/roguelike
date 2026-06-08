@@ -339,7 +339,7 @@ class RogueScene extends Phaser.Scene {
 
     const moteCount = room.type === 'neutral' ? 12 : 28;
     for (let i = 0; i < moteCount; i++) {
-      const x = Phaser.Math.Between(left + 24, right - 24);
+      const x = Phaser.Math.Between(left + 24, left + ROOM_WIDTH - 24);
       const y = Phaser.Math.Between(top + 24, bottom - 24);
       this.floor.fillStyle(room.type === 'reward' ? 0x2c2a3d : 0x242234, 1).fillRect(x, y, 3, 3);
     }
