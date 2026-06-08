@@ -339,13 +339,12 @@ class RogueScene extends Phaser.Scene {
     this.floorBack.fillStyle(room.type === 'neutral' ? 0x15131f : 0x111018, 1).fillRect(left, top, ROOM_WIDTH, ROOM_HEIGHT);
     this.drawFloorPanels(room, left, top, ROOM_WIDTH, ROOM_HEIGHT);
 
-    if (room.y === 0) this.drawHorizontalWall(left, top, ROOM_WIDTH, room, 'top');
+    this.drawHorizontalWall(left, top, ROOM_WIDTH, room, 'top');
     if (room.y === ROOM_ROWS - 1) this.drawHorizontalWall(left, bottom - WALL_HEIGHT, ROOM_WIDTH, room, 'bottom');
     if (room.x === 0) this.drawSideWall(left, top, ROOM_HEIGHT, room, false);
     if (room.x === ROOM_COLS - 1) this.drawSideWall(right - SIDE_WALL_WIDTH, top, ROOM_HEIGHT, room, true);
 
-    if (room.x < ROOM_COLS - 1) this.drawDoor(right, doorY, room, this.getRoom(room.x + 1, room.y), 'right');
-    if (room.y < ROOM_ROWS - 1) this.drawDoor(doorX, bottom, room, this.getRoom(room.x, room.y + 1), 'down');
+    if (room.y < ROOM_ROWS - 1) this.drawDoor(doorX, bottom + WALL_HEIGHT / 2, room, this.getRoom(room.x, room.y + 1), 'down');
 
     const moteCount = room.type === 'neutral' ? 12 : 28;
     for (let i = 0; i < moteCount; i++) {
@@ -430,9 +429,6 @@ class RogueScene extends Phaser.Scene {
   drawDoor(x, y, roomA, roomB, direction) {
     const door = this.add.image(x, y, 'door-open').setOrigin(0.5).setDepth(3).setScale(WALL_SCALE);
     const frame = this.add.image(x, y, 'wall-door-frame').setOrigin(0.5).setDepth(4).setScale(WALL_SCALE);
-    const angle = direction === 'right' ? 90 : direction === 'down' ? 180 : 0;
-    door.setAngle(angle);
-    frame.setAngle(angle);
     this.floorTiles.add(door);
     this.floorTiles.add(frame);
     this.doorEntries.push({ roomA, roomB, direction, door });
