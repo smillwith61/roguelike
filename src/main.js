@@ -326,25 +326,16 @@ class RogueScene extends Phaser.Scene {
         this.drawRoom(room);
       }
     }
+    this.drawDungeonBoundaries();
   }
 
   drawRoom(room) {
     const left = room.x * ROOM_WIDTH;
     const top = room.y * ROOM_HEIGHT;
-    const right = left + ROOM_WIDTH;
     const bottom = top + ROOM_HEIGHT;
-    const doorX = left + ROOM_WIDTH / 2;
-    const doorY = top + ROOM_HEIGHT / 2;
 
     this.floorBack.fillStyle(room.type === 'neutral' ? 0x15131f : 0x111018, 1).fillRect(left, top, ROOM_WIDTH, ROOM_HEIGHT);
     this.drawFloorPanels(room, left, top, ROOM_WIDTH, ROOM_HEIGHT);
-
-    this.drawHorizontalWall(left, top, ROOM_WIDTH, room, 'top');
-    if (room.y === ROOM_ROWS - 1) this.drawHorizontalWall(left, bottom - WALL_HEIGHT, ROOM_WIDTH, room, 'bottom');
-    if (room.x === 0) this.drawSideWall(left, top, ROOM_HEIGHT, room, false);
-    if (room.x === ROOM_COLS - 1) this.drawSideWall(right - SIDE_WALL_WIDTH, top, ROOM_HEIGHT, room, true);
-
-    if (room.y < ROOM_ROWS - 1) this.drawDoor(doorX, bottom + WALL_HEIGHT / 2, room, this.getRoom(room.x, room.y + 1), 'down');
 
     const moteCount = room.type === 'neutral' ? 12 : 28;
     for (let i = 0; i < moteCount; i++) {
@@ -397,7 +388,45 @@ class RogueScene extends Phaser.Scene {
     return 'tile-floor';
   }
 
+  drawDungeonBoundaries() {
+    for (let row = 0; row <= ROOM_ROWS; row++) {
+      const y = row * ROOM_HEIGHT - (row === ROOM_ROWS ? WALL_HEIGHT : 0);
+      for (let col = 0; col < ROOM_COLS; col++) {
+        const x = col * ROOM_WIDTH;
+        if (row === 0 || row === ROOM_ROWS) {
+          this.drawHorizontalWall(x, y, ROOM_WIDTH, this.getRoom(col, clamp(row, 0, ROOM_ROWS - 1)), row === ROOM_ROWS ? 'bottom' : 'top');
+        } else {
+          const roomA = this.getRoom(col, row - 1);
+          const roomB = this.getRoom(col, row);
+          const centerX = x + ROOM_WIDTH / 2;
+          this.drawHorizontalWall(x, y, centerX - DOOR_SIZE / 2 - x, roomA, 'top');
+          this.drawHorizontalWall(centerX + DOOR_SIZE / 2, y, x + ROOM_WIDTH - (centerX + DOOR_SIZE / 2), roomB, 'top');
+          this.drawDoor(centerX, y + WALL_HEIGHT / 2, roomA, roomB);
+        }
+      }
+    }
+
+    for (let col = 0; col <= ROOM_COLS; col++) {
+      const x = col * ROOM_WIDTH - (col === ROOM_COLS ? SIDE_WALL_WIDTH : 0);
+      if (col === 0 || col === ROOM_COLS) {
+        this.drawSideWall(x, 0, WORLD_HEIGHT, null, col === ROOM_COLS);
+      } else {
+        for (let row = 0; row < ROOM_ROWS; row++) {
+          const roomA = this.getRoom(col - 1, row);
+          const roomB = this.getRoom(col, row);
+          const y = row * ROOM_HEIGHT;
+          const gapTop = y + ROOM_HEIGHT / 2 - DOOR_HALF_SIZE;
+          const gapHeight = DOOR_HALF_SIZE * 2;
+          this.drawSideWall(x, y, gapTop - y, null, false);
+          this.drawSideWallBlocker(x, gapTop, gapHeight, roomA, roomB);
+          this.drawSideWall(x, gapTop + gapHeight, y + ROOM_HEIGHT - (gapTop + gapHeight), null, false);
+        }
+      }
+    }
+  }
+
   drawHorizontalWall(x, y, width, room, edge) {
+    if (width <= 0) return;
     let cursor = x;
     let index = 0;
     while (cursor < x + width - 1) {
@@ -416,28 +445,39 @@ class RogueScene extends Phaser.Scene {
   }
 
   drawSideWall(x, y, height, room, flipX) {
+    if (height <= 0) return [];
+    const pieces = [];
     for (let cursor = y; cursor < y + height - 1; cursor += SIDE_WALL_HEIGHT) {
       const drawHeight = Math.min(SIDE_WALL_HEIGHT, y + height - cursor);
       const wall = this.add.image(x, cursor, 'wall-side').setOrigin(0).setDepth(2).setFlipX(flipX).setScale(WALL_SCALE);
       if (drawHeight !== SIDE_WALL_HEIGHT) wall.setDisplaySize(SIDE_WALL_WIDTH, drawHeight);
-      if (room.type === 'neutral') wall.setTint(0xd8d0ff);
-      if (room.type === 'reward') wall.setTint(0xffefd0);
+      if (room?.type === 'neutral') wall.setTint(0xd8d0ff);
+      if (room?.type === 'reward') wall.setTint(0xffefd0);
       this.floorTiles.add(wall);
+      pieces.push(wall);
     }
+    return pieces;
   }
 
-  drawDoor(x, y, roomA, roomB, direction) {
+  drawSideWallBlocker(x, y, height, roomA, roomB) {
+    const pieces = this.drawSideWall(x, y, height, null, false);
+    this.doorEntries.push({ roomA, roomB, blockerPieces: pieces });
+  }
+
+  drawDoor(x, y, roomA, roomB) {
     const door = this.add.image(x, y, 'door-open').setOrigin(0.5).setDepth(3).setScale(WALL_SCALE);
     const frame = this.add.image(x, y, 'wall-door-frame').setOrigin(0.5).setDepth(4).setScale(WALL_SCALE);
     this.floorTiles.add(door);
     this.floorTiles.add(frame);
-    this.doorEntries.push({ roomA, roomB, direction, door });
+    this.doorEntries.push({ roomA, roomB, door });
   }
 
   updateDoorStates() {
     if (!this.doorEntries) return;
     this.doorEntries.forEach((entry) => {
-      entry.door.setTexture(this.isDoorConnectionClosed(entry) ? 'door-closed' : 'door-open');
+      const closed = this.isDoorConnectionClosed(entry);
+      if (entry.door) entry.door.setTexture(closed ? 'door-closed' : 'door-open');
+      if (entry.blockerPieces) entry.blockerPieces.forEach((piece) => piece.setVisible(closed));
     });
   }
 
