@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vite/
+/assets/
+/scripts/
+/public/assets/concept/
+/public/assets/source/
+*.log
+*.err.log
