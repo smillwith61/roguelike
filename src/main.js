@@ -27,11 +27,7 @@ const PLAYER_OUTLINE_OFFSETS = [
   { x: -1, y: 0 },
   { x: 1, y: 0 },
   { x: 0, y: -1 },
-  { x: 0, y: 1 },
-  { x: -1, y: -1 },
-  { x: 1, y: -1 },
-  { x: -1, y: 1 },
-  { x: 1, y: 1 }
+  { x: 0, y: 1 }
 ];
 const TILE_FRAME = {
   floor: 0,
@@ -168,8 +164,8 @@ class RogueScene extends Phaser.Scene {
     this.playerOutlineSprites = PLAYER_OUTLINE_OFFSETS.map((offset, index) => {
       const outline = this.add.image(this.player.x + offset.x, this.player.y + offset.y, 'player', 0).setDepth(11);
       outline.offset = offset;
-      outline.setTint(index < 4 ? 0x05030a : 0x5ee8ff);
-      outline.setAlpha(index < 4 ? 0.95 : 0.42);
+      outline.setTint(0x05030a);
+      outline.setAlpha(0.9);
       return outline;
     });
 
@@ -899,13 +895,13 @@ class RogueScene extends Phaser.Scene {
     const y = this.player.y + 8;
     this.playerReadabilityLayer.fillStyle(0x030208, 0.58);
     this.playerReadabilityLayer.fillEllipse(x, y + 7, 24, 9);
-    this.playerOutlineSprites.forEach((outline, index) => {
+    this.playerOutlineSprites.forEach((outline) => {
       outline.setVisible(true);
       outline.setFrame(this.player.frame.name);
       outline.setPosition(this.player.x + outline.offset.x, this.player.y + outline.offset.y);
       outline.setFlipX(this.player.flipX);
       outline.setAngle(this.player.angle);
-      outline.setAlpha(index < 4 ? this.player.alpha * 0.95 : this.player.alpha * 0.42);
+      outline.setAlpha(this.player.alpha * 0.9);
     });
   }
 
